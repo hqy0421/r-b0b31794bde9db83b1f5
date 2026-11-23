@@ -1,0 +1,441 @@
+"""Test LazyFastCan."""
+
+from functools import partial
+
+import numpy as np
+import pytest
+import torch
+from numpy.testing import assert_almost_equal
+from sklearn.cross_decomposition import CCA
+from sklearn.datasets import make_regression
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.utils.estimator_checks import check_estimator, config_context
+
+from fastcan import LazyFastCan
+from fastcan.narx import (
+    gen_poly_features,
+    gen_time_shift_features,
+    make_poly_ids,
+    make_time_shift_features,
+    make_time_shift_ids,
+)
+
+
+def test_lazyfastcan_is_sklearn_estimator(monkeypatch):
+    monkeypatch.setenv("SCIPY_ARRAY_API", "1")
+    if torch.mps.is_available():
+        monkeypatch.setenv("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+
+    check_estimator(LazyFastCan())
+
+
+@pytest.mark.parametrize("array_type", ["numpy", "pytorch"])
+def test_lazy_include(array_type, monkeypatch):
+    """
+    Test if LazyFastCan correctly selects prerequisite features.
+    """
+    rng = np.random.default_rng(42)
+    n_samples = 200
+    n_features = 20
+    n_informative = 10
+    n_terms = 6
+    n_include = 3
+    X = rng.normal(size=(n_samples, n_features))
+
+    w = rng.normal(size=n_informative)
+    e = rng.normal(scale=0.01, size=n_samples)
+    y = X[:, :n_informative] @ w + e
+
+    for _ in range(5):
+        indices_include = rng.choice(n_informative, size=n_include, replace=False)
+        lfc = LazyFastCan(
+            n_features_to_select=n_terms,
+            indices_include=indices_include,
+        )
+        if array_type == "pytorch":
+            monkeypatch.setenv("SCIPY_ARRAY_API", "1")
+            device = (
+                "cuda"
+                if torch.cuda.is_available()
+                else "mps"
+                if torch.mps.is_available()
+                else "cpu"
+            )
+            torch.set_default_device(device)
+            X_torch = torch.tensor(X, dtype=torch.float32)
+            y_torch = torch.tensor(y, dtype=torch.float32)
+
+            with config_context(array_api_dispatch=True):
+                lfc.fit(X_torch, y_torch)
+                indices = lfc.indices_.cpu().numpy()
+        else:
+            lfc.fit(X, y)
+            indices = lfc.indices_
+        assert set(indices_include).issubset(set(indices))
+
+
+@pytest.mark.parametrize("array_type", ["numpy", "pytorch"])
+@pytest.mark.parametrize("prerequisite", [True, False])
+def test_lazy_poly_selection(array_type, prerequisite, monkeypatch):
+    """
+    Test if LazyFastCan correctly selects informative polynomial features,
+    and if the ssc score is aligned with the ground truth.
+    """
+    rng = np.random.default_rng(42)
+    n_samples = 200
+    n_features = 5
+    n_informative = 3
+    X = rng.normal(size=(n_samples, n_features))
+    poly_features = PolynomialFeatures(degree=2, include_bias=False)
+    X_poly = poly_features.fit_transform(X[:, :n_informative])
+    n_polys = X_poly.shape[1]
+    w = rng.normal(size=n_polys)
+    e = rng.normal(scale=0.01, size=n_samples)
+    y = X_poly @ w + e
+
+    reg = LinearRegression().fit(X_poly, y)
+    gtruth_ssc = reg.score(X_poly, y)
+
+    poly_ids = make_poly_ids(n_features, degree=2)
+    feat_gen = partial(gen_poly_features, ids=poly_ids, batch_size=1)
+
+    poly_filter = LazyFastCan(
+        n_features_to_select=n_polys,
+        feature_generator=feat_gen,
+        indices_include=[0, 2] if prerequisite else None,
+    )
+    if array_type == "pytorch":
+        monkeypatch.setenv("SCIPY_ARRAY_API", "1")
+        device = (
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.mps.is_available()
+            else "cpu"
+        )
+        torch.set_default_device(device)
+        X_torch = torch.tensor(X, dtype=torch.float32)
+        y_torch = torch.tensor(y, dtype=torch.float32)
+
+        with config_context(array_api_dispatch=True):
+            poly_filter.fit(X_torch, y_torch)
+            ssc = float(poly_filter.scores_.sum().cpu())
+    else:
+        poly_filter.fit(X, y)
+        ssc = poly_filter.scores_.sum()
+    assert abs(ssc - gtruth_ssc) < 1e-5
+
+
+@pytest.mark.parametrize("array_type", ["numpy", "pytorch"])
+@pytest.mark.parametrize("prerequisite", [True, False])
+def test_lazy_time_shift_selection(array_type, prerequisite, monkeypatch):
+    """
+    Test if LazyFastCan correctly selects informative time-shifted features,
+    and if the ssc score is aligned with the ground truth.
+    """
+    rng = np.random.default_rng(42)
+    n_samples = 200
+    max_delay = 10
+    n_features = 5
+    n_informative = 3
+    X = rng.normal(size=(n_samples + max_delay, n_features))
+    time_shift_ids = make_time_shift_ids(n_informative, max_delay=max_delay)
+    X_shifted = make_time_shift_features(
+        X[:, :n_informative], ids=time_shift_ids, mode="constant", constant_values=0.0
+    )
+    n_time_shifts = X_shifted.shape[1]
+    w = rng.normal(size=n_time_shifts)
+    e = rng.normal(scale=0.01, size=n_samples + max_delay)
+    y = X_shifted @ w + e
+
+    reg = LinearRegression().fit(X_shifted[max_delay:], y[max_delay:])
+    gtruth_ssc = reg.score(X_shifted[max_delay:], y[max_delay:])
+
+    feat_gen = partial(gen_time_shift_features, ids=time_shift_ids)
+
+    if array_type == "pytorch":
+        monkeypatch.setenv("SCIPY_ARRAY_API", "1")
+        device = (
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.mps.is_available()
+            else "cpu"
+        )
+        torch.set_default_device(device)
+        sample_mask = torch.ones(n_samples + max_delay, dtype=torch.bool)
+        sample_mask[:max_delay] = False
+
+        time_shift_filter = LazyFastCan(
+            n_features_to_select=n_time_shifts,
+            feature_generator=feat_gen,
+            sample_mask=sample_mask,
+            indices_include=[0, 2] if prerequisite else None,
+        )
+        X_torch = torch.tensor(X, dtype=torch.float32)
+        y_torch = torch.tensor(y, dtype=torch.float32)
+
+        with config_context(array_api_dispatch=True):
+            time_shift_filter.fit(X_torch, y_torch)
+            ssc = float(time_shift_filter.scores_.sum().cpu())
+    else:
+        sample_mask = np.ones(n_samples + max_delay, dtype=bool)
+        sample_mask[:max_delay] = False
+
+        time_shift_filter = LazyFastCan(
+            n_features_to_select=n_time_shifts,
+            feature_generator=feat_gen,
+            sample_mask=sample_mask,
+        )
+        time_shift_filter.fit(X, y)
+        ssc = time_shift_filter.scores_.sum()
+    assert abs(ssc - gtruth_ssc) < 1e-5
+
+
+def test_lazy_ssc_consistent_with_cca():
+    """
+    Test if the ssc score from LazyFastCan is consistent with
+    the ssc score from CCA.
+    """
+    n_samples = 200
+    n_features = 20
+    n_targets = 10
+    n_informative = 10
+
+    X, y = make_regression(
+        n_samples=n_samples,
+        n_features=n_features,
+        n_informative=n_informative,
+        n_targets=n_targets,
+        noise=0.1,
+        shuffle=False,
+        random_state=0,
+    )
+
+    cca = CCA(n_components=n_targets)
+    cca.fit(X, y)
+    X_c, Y_c = cca.transform(X, y)
+    corrcoef = np.corrcoef(X_c, Y_c, rowvar=False).diagonal(offset=n_targets)
+    gtruth_ssc = sum(corrcoef**2)
+
+    correlation_filter = LazyFastCan(
+        n_features_to_select=n_features,
+    )
+    correlation_filter.fit(X, y)
+    ssc = correlation_filter.scores_.sum()
+    assert_almost_equal(actual=ssc, desired=gtruth_ssc)
+
+
+def test_lazy_const_feats():
+    """
+    Test if LazyFastCan can skip constant features without errors.
+    """
+    n_samples = 100
+    n_features = 10
+    n_informative = 5
+
+    rng = np.random.default_rng(42)
+    X = rng.normal(size=(n_samples, n_features))
+    X[:, n_informative:] = 1.0  # Make some features constant
+    w = rng.normal(size=n_informative)
+    e = rng.normal(scale=0.01, size=n_samples)
+    y = X[:, :n_informative] @ w + e
+
+    const_filter = LazyFastCan(
+        n_features_to_select=n_informative,
+    )
+    const_filter.fit(X, y)
+    selected_ids = const_filter.indices_
+    selected_ids.sort()
+    assert selected_ids.tolist() == list(range(n_informative))
+
+
+def test_lazy_redundant_feats():
+    """
+    Test if LazyFastCan can skip redundant features without errors.
+    """
+    n_samples = 100
+    n_features = 10
+    n_informative = 5
+
+    rng = np.random.default_rng(42)
+    X = rng.normal(size=(n_samples, n_features))
+    X[:, n_informative:] = X[:, :n_informative]  # Make some features redundant
+    w = rng.normal(size=n_informative)
+    e = rng.normal(scale=0.01, size=n_samples)
+    y = X[:, :n_informative] @ w + e
+
+    redundant_filter = LazyFastCan(
+        n_features_to_select=n_informative,
+    )
+    redundant_filter.fit(X, y)
+    selected_ids = redundant_filter.indices_
+    selected_ids.sort()
+    assert selected_ids.tolist() == list(range(n_informative))
+
+
+def test_gen_nan_feats():
+    """
+    Test when feature generator yields features with NaN values,
+    LazyFastCan can handle it by sample_mask.
+    """
+
+    def _gen_nan_features(X, ids, skip_indices):
+        for index, id_temp in enumerate(ids):
+            if index in skip_indices:
+                continue
+            yield (
+                np.array([index], dtype=int),
+                make_time_shift_features(X, id_temp.reshape((1, -1))),
+            )
+
+    n_samples = 1000
+    n_features = 10
+    n_informative = 5
+    max_delay = 5
+
+    rng = np.random.default_rng(42)
+    X = rng.normal(size=(n_samples, n_features))
+    w = rng.normal(size=n_informative)
+    y = X[:, :n_informative] @ w
+    time_shift_ids = make_time_shift_ids(n_informative, max_delay=max_delay)
+    gen_nan = partial(_gen_nan_features, ids=time_shift_ids)
+
+    lfc = LazyFastCan(
+        n_features_to_select=n_informative,
+        feature_generator=gen_nan,
+    )
+    with pytest.raises(ValueError, match="contains non-finite values"):
+        lfc.fit(X, y)
+
+    sample_mask = np.ones(n_samples, dtype=bool)
+    sample_mask[:max_delay] = False
+    lfc_mask = LazyFastCan(
+        n_features_to_select=n_informative,
+        feature_generator=gen_nan,
+        sample_mask=sample_mask,
+    )
+    lfc_mask.fit(X, y)
+    assert np.all(lfc_mask.indices_ < n_informative * max_delay)
+
+
+def test_lazy_errors():
+    """
+    Test if LazyFastCan raises expected errors.
+    """
+
+    def _gen_scalar_idx(X, skip_indices):
+        n_features = X.shape[1]
+        for j in range(n_features):
+            if j in skip_indices:
+                continue
+            yield j, X[:, [j]]
+
+    def _gen_float_idx(X, skip_indices):
+        n_features = X.shape[1]
+        for j in range(n_features):
+            if j in skip_indices:
+                continue
+            yield np.array([0], dtype=float), X[:, [j]]
+
+    def _gen_neg_idx(X, skip_indices):
+        n_features = X.shape[1]
+        for j in range(n_features):
+            if j in skip_indices:
+                continue
+            yield np.array([-1], dtype=int), X[:, [j]]
+
+    def _gen_1d_feats(X, skip_indices):
+        n_features = X.shape[1]
+        for j in range(n_features):
+            if j in skip_indices:
+                continue
+            yield np.array([j], dtype=int), X[:, j]
+
+    def _gen_short_feats(X, skip_indices):
+        n_features = X.shape[1]
+        for j in range(n_features):
+            if j in skip_indices:
+                continue
+            yield np.array([j], dtype=int), X[10:, [j]]
+
+    def _gen_nan_feats(X, skip_indices):
+        n_features = X.shape[1]
+        for j in range(n_features):
+            if j in skip_indices:
+                continue
+            yield np.array([j], dtype=int), np.r_[X[1:, j], np.nan].reshape(-1, 1)
+
+    n_samples = 100
+    n_features = 10
+    n_informative = 5
+
+    rng = np.random.default_rng(42)
+    X = rng.normal(size=(n_samples, n_features))
+    X[:, n_informative:] = X[:, :n_informative]
+    w = rng.normal(size=n_informative)
+    y = X[:, :n_informative] @ w
+
+    filter_scalar_idx = LazyFastCan(
+        feature_generator=_gen_scalar_idx,
+    )
+    with pytest.raises(ValueError, match="is not a one-dimensional array"):
+        filter_scalar_idx.fit(X, y)
+
+    filter_float_idx = LazyFastCan(
+        feature_generator=_gen_float_idx,
+    )
+    with pytest.raises(TypeError, match="not an array of integers"):
+        filter_float_idx.fit(X, y)
+
+    filter_neg_idx = LazyFastCan(
+        feature_generator=_gen_neg_idx,
+    )
+    with pytest.raises(ValueError, match="contains negative values"):
+        filter_neg_idx.fit(X, y)
+
+    filter_1d_feats = LazyFastCan(
+        feature_generator=_gen_1d_feats,
+    )
+    with pytest.raises(ValueError, match="is not two-dimensional"):
+        filter_1d_feats.fit(X, y)
+
+    filter_short_feats = LazyFastCan(
+        feature_generator=_gen_short_feats,
+    )
+    with pytest.raises(ValueError, match="expected length is"):
+        filter_short_feats.fit(X, y)
+
+    filter_nan_feats = LazyFastCan(
+        feature_generator=_gen_nan_feats,
+    )
+    with pytest.raises(ValueError, match="contains non-finite values"):
+        filter_nan_feats.fit(X, y)
+
+    filter_noidx = LazyFastCan(n_features_to_select=n_informative + 1)
+    with pytest.raises(RuntimeError, match="No more features can be selected"):
+        filter_noidx.fit(X, y)
+
+    X[:, n_informative:] = 1.0
+    filter_noscore = LazyFastCan(n_features_to_select=n_informative + 1)
+    with pytest.raises(RuntimeError, match="No improvement can be achieved"):
+        filter_noscore.fit(X, y)
+
+    filter_mask = LazyFastCan(sample_mask=np.ones(n_samples - 1, dtype=bool))
+    with pytest.raises(ValueError, match="The length of sample_mask"):
+        filter_mask.fit(X, y)
+
+    filter_include = LazyFastCan(
+        n_features_to_select=n_informative, indices_include=[0, 2, n_features]
+    )
+    with pytest.raises(
+        RuntimeError, match="Not all prerequisite features can be selected"
+    ):
+        filter_include.fit(X, y)
+
+    filter_duplicate = LazyFastCan(
+        n_features_to_select=n_informative, indices_include=[0, 2, 2]
+    )
+    with pytest.raises(ValueError, match="Duplicate indices"):
+        filter_duplicate.fit(X, y)
