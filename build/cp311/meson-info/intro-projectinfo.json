@@ -1,0 +1,10 @@
+{
+  "version": "0.7.0.dev0",
+  "descriptive_name": "fastcan",
+  "license": [
+    "MIT"
+  ],
+  "license_files": [],
+  "subproject_dir": "subprojects",
+  "subprojects": []
+}

@@ -1,0 +1,4 @@
+fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p/_narx_fast.pyx.c: \
+  ../../fastcan/narx/_narx_fast.pyx \
+  ../../../opt/venv/lib/python3.11/site-packages/sklearn/utils/_cython_blas.pxd \
+  ../../../opt/venv/lib/python3.11/site-packages/Cython/Includes/libc/string.pxd

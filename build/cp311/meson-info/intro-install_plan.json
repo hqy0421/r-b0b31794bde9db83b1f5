@@ -1,0 +1,30 @@
+{
+  "targets": {
+    "/workspace/build/cp311/fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so": {
+      "destination": "{py_platlib}/fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so",
+      "tag": "runtime",
+      "subproject": null,
+      "install_rpath": null,
+      "build_rpaths": []
+    },
+    "/workspace/build/cp311/fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so": {
+      "destination": "{py_platlib}/fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so",
+      "tag": "runtime",
+      "subproject": null,
+      "install_rpath": null,
+      "build_rpaths": []
+    }
+  },
+  "install_subdirs": {
+    "/workspace/fastcan": {
+      "destination": "{py_platlib}/fastcan",
+      "tag": "python-runtime",
+      "subproject": null,
+      "exclude_dirs": [],
+      "exclude_files": [
+        "_cancorr_fast.pyx",
+        "narx/_narx_fast.pyx"
+      ]
+    }
+  }
+}

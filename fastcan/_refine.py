@@ -131,6 +131,16 @@ def refine(selector, drop=1, max_iter=None, verbose=1):
                 rolled_indices[:-drop_n],
                 indices_exclude,
             )
+            group_ids = (
+                np.asarray(selector.group_ids_, dtype=np.int64)
+                if getattr(selector, "group_ids_", None) is not None
+                else np.empty(0, dtype=np.int64)
+            )
+            group_mask = (
+                np.zeros(selector.group_labels_.size, dtype=np.ubyte)
+                if getattr(selector, "group_ids_", None) is not None
+                else np.empty(0, dtype=np.ubyte)
+            )
             _greedy_search(
                 X=X_transformed_,
                 V=selector.y_transformed_,
@@ -141,6 +151,8 @@ def refine(selector, drop=1, max_iter=None, verbose=1):
                 mask=mask,
                 indices=indices,
                 scores=scores,
+                group_ids=group_ids,
+                group_mask=group_mask,
             )
 
             if (scores.sum() > best_ssc) and (set(indices) != set(best_indices)):

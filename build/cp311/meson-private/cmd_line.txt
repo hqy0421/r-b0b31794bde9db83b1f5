@@ -1,0 +1,9 @@
+[options]
+buildtype = release
+b_ndebug = if-release
+b_vscrt = md
+vsenv = true
+
+[properties]
+native_file = ['/workspace/build/cp311/meson-python-native-file.ini']
+

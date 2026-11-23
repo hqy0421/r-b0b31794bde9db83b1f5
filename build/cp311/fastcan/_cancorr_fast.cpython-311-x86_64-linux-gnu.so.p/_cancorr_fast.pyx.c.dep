@@ -1,0 +1,7 @@
+fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/_cancorr_fast.pyx.c: \
+  ../../../opt/venv/lib/python3.11/site-packages/sklearn/utils/_cython_blas.pxd \
+  ../../../opt/venv/lib/python3.11/site-packages/scipy/linalg/cython_blas.pxd \
+  ../../fastcan/_cancorr_fast.pyx \
+  ../../../opt/venv/lib/python3.11/site-packages/Cython/Includes/libc/string.pxd \
+  ../../../opt/venv/lib/python3.11/site-packages/sklearn/utils/_typedefs.pxd \
+  ../../../opt/venv/lib/python3.11/site-packages/Cython/Includes/libc/stdlib.pxd

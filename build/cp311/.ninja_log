@@ -1,0 +1,16 @@
+# ninja log v7
+13	1598	1795442658487758100	fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p/_narx_fast.pyx.c	63dcb108db70b1aa
+11	1690	1795442658560757700	fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/_cancorr_fast.pyx.c	d9c1edf27875623c
+1691	6082	1795442663167317900	fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__cancorr_fast.pyx.c.o	4b4549e5f8847b87
+6137	6230	1795442663314195800	fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so	bf85048071084cb6
+1601	6855	1795442663939435400	fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__narx_fast.pyx.c.o	75a2f14ceaf38ee0
+6857	6938	1795442664023904100	fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so	94be30cad1c00e60
+24	1416	1795450883724779000	fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/_cancorr_fast.pyx.c	d9c1edf27875623c
+1419	6317	1795450883981964100	fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__cancorr_fast.pyx.c.o	4b4549e5f8847b87
+6319	6417	1795450888882506400	fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so	bf85048071084cb6
+19	1751	1795451194609806900	fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/_cancorr_fast.pyx.c	d9c1edf27875623c
+1753	8029	1795451194975361800	fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__cancorr_fast.pyx.c.o	4b4549e5f8847b87
+8031	8127	1795451201252512700	fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so	bf85048071084cb6
+20	1538	1795451226570217400	fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/_cancorr_fast.pyx.c	d9c1edf27875623c
+1540	6248	1795451226789536400	fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__cancorr_fast.pyx.c.o	4b4549e5f8847b87
+6250	6335	1795451231499654100	fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so	bf85048071084cb6

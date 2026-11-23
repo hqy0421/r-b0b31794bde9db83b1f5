@@ -1,0 +1,29 @@
+The Meson build system
+Version: 1.12.1
+Source dir: /workspace
+Build dir: /workspace/build/cp311
+Build type: native build
+Project name: fastcan
+Project version: 0.7.0.dev0
+C compiler for the host machine: cc (gcc 12.2.0 "cc (Debian 12.2.0-14+deb12u1) 12.2.0")
+C linker for the host machine: cc ld.bfd 2.40
+Cython compiler for the host machine: cython (cython 3.3.1)
+Host machine cpu family: x86_64
+Host machine cpu: x86_64
+Program python found: YES (/task-cache/venv/bin/python)
+Dependency OpenMP for host machine found: YES 4.5 (cached)
+Build targets in project: 2
+
+fastcan 0.7.0.dev0
+
+  User defined options
+    Native files: /workspace/build/cp311/meson-python-native-file.ini
+    b_ndebug    : if-release
+    b_vscrt     : md
+    buildtype   : release
+    vsenv       : true
+
+Found ninja-1.13.2.git.kitware.jobserver-pipe-1 at /opt/venv/bin/ninja
+
+Visual Studio environment is needed to run Ninja. It is recommended to use Meson wrapper:
+/opt/venv/bin/meson compile -C .

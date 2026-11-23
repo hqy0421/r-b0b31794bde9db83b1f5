@@ -34,6 +34,18 @@ To build a reduced polynomial NARX model, we normally need the following steps:
 
 * See :ref:`sphx_glr_auto_examples_plot_narx.py` for an example of the basic usage of the NARX model.
 
+Duplicate sampling channels
+===========================
+
+When the same physical quantity is recorded by several (nearly) collinear
+channels, pass their labels through the ``groups`` parameter of
+:func:`make_narx`. The labels are propagated to the time-shift and polynomial
+term candidates, so duplicate signals compete for a single term budget and
+the selection becomes deterministic and traceable. The returned
+:class:`NARX` keeps the group bookkeeping, enabling a verified substitution
+if a representative channel is missing at prediction time. See
+:ref:`equivalence_groups` for the full workflow.
+
 Multiple time series and missing values
 =======================================
 

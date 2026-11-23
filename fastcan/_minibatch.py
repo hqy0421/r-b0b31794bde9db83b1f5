@@ -138,6 +138,8 @@ def minibatch(X, y, n_features_to_select=1, batch_size=1, tol=0.01, verbose=1):
                     mask=mask,
                     indices=indices,
                     scores=scores,
+                    group_ids=np.empty(0, dtype=np.int64),
+                    group_mask=np.empty(0, dtype=np.ubyte),
                 )
             except RuntimeError:
                 # If the batch size is too large, _greedy_search cannot find enough

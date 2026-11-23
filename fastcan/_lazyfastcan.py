@@ -7,6 +7,7 @@ Lazy FastCan selector.
 
 from numbers import Integral, Real
 
+import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_array
 from sklearn.utils._array_api import (
@@ -17,6 +18,7 @@ from sklearn.utils._array_api import (
 from sklearn.utils._param_validation import Interval
 
 from ._fastcan import _check_indices_params, _check_X_y
+from ._group import alternate_mask, normalize_groups
 
 
 def _classical_gram_schmidt(x, W, xp):
@@ -115,6 +117,18 @@ class LazyFastCan(BaseEstimator):
         Tolerance for linear dependence check.
         The classical Gram-Schmidt fails when abs(x.T @ W) > `tol`.
 
+    groups : array-like of shape (n_features,), default=None
+        Group labels of the features. Features with the same label are
+        equivalent (duplicate) sampling channels. Only one feature per
+        group can be selected: the lowest-indexed member becomes the
+        frozen representative and the remaining members are skipped
+        without spending another selection slot. Group bookkeeping is
+        exposed through the `group_ids_`, `group_labels_`,
+        `group_representatives_`, and `group_members_` attributes. Only
+        NumPy arrays are supported when `groups` is not None.
+
+        .. versionadded:: 0.7.0
+
     Attributes
     ----------
     indices_ : ndarray of shape (n_features_to_select,), dtype=int
@@ -127,6 +141,35 @@ class LazyFastCan(BaseEstimator):
 
     indices_include_ : ndarray of shape (n_inclusions,), dtype=int
         The indices of the prerequisite features.
+
+    group_ids_ : ndarray of shape (n_features,), dtype=np.int64
+        Compact integer id of the equivalence group of each feature.
+        Only defined when `groups` is not None.
+
+        .. versionadded:: 0.7.0
+
+    group_labels_ : ndarray of shape (n_groups,), dtype=object
+        The unique group labels corresponding to `group_ids_`.
+
+        .. versionadded:: 0.7.0
+
+    group_representatives_ : ndarray of shape (n_groups,), dtype=np.int64
+        The feature index of the lowest-indexed representative of each
+        group.
+
+        .. versionadded:: 0.7.0
+
+    group_members_ : list of ndarray
+        The feature indices belonging to each group.
+
+        .. versionadded:: 0.7.0
+
+    X_train_ : ndarray of shape (n_samples, n_features), dtype=float
+        The (validated) training feature matrix, stored to verify group
+        equivalence and estimate substitution mappings. Only defined
+        when `groups` is not None.
+
+        .. versionadded:: 0.7.0
 
 
     Examples
@@ -149,6 +192,7 @@ class LazyFastCan(BaseEstimator):
         "sample_mask": ["array-like", None],
         "indices_include": [None, "array-like"],
         "tol": [Interval(Real, 0, None, closed="neither")],
+        "groups": [None, "array-like"],
     }
 
     def __init__(
@@ -158,12 +202,14 @@ class LazyFastCan(BaseEstimator):
         sample_mask=None,
         indices_include=None,
         tol=1e-6,
+        groups=None,
     ):
         self.n_features_to_select = n_features_to_select
         self.feature_generator = feature_generator
         self.sample_mask = sample_mask
         self.indices_include = indices_include
         self.tol = tol
+        self.groups = groups
 
     def fit(self, X, y):
         self._validate_params()
@@ -187,6 +233,45 @@ class LazyFastCan(BaseEstimator):
             self.indices_include, xp=xp, device=device_
         )
         indices_include = xp.asarray(self.indices_include_, copy=True)
+
+        if self.groups is None:
+            self.group_ids_ = None
+            self.group_labels_ = None
+            self.group_representatives_ = None
+            self.group_members_ = None
+        else:
+            if is_array_api:
+                raise ValueError(
+                    "Equivalence groups (`groups`) are only supported with NumPy "
+                    "input arrays in lazy mode."
+                )
+            # In lazy mode the feature space is discovered through the
+            # generator; `groups` is materialized by the caller and therefore
+            # defines its full size up front.
+            (
+                self.group_ids_,
+                self.group_labels_,
+                self.group_representatives_,
+                self.group_members_,
+            ) = normalize_groups(
+                self.groups,
+                indices_include=self.indices_include_,
+            )
+            self.X_train_ = np.array(X, copy=True)
+            n_available_groups = self.group_labels_.size
+            if self.n_features_to_select > n_available_groups:
+                raise ValueError(
+                    "n_features_to_select should be <= the number of equivalence "
+                    f"groups ({n_available_groups}), but got "
+                    f"{self.n_features_to_select}."
+                )
+            # Alternate members are never selectable: only the lowest-indexed
+            # representative of each group enters the candidate pool.
+            group_skip = np.flatnonzero(
+                alternate_mask(self.group_ids_, self.group_representatives_)
+            )
+            n_group_features = self.group_ids_.shape[0]
+
         y_masked = y[sample_mask]
         y_transformed, _ = xp.linalg.qr(
             y_masked - xp.mean(y_masked, axis=0), mode="reduced"
@@ -206,7 +291,17 @@ class LazyFastCan(BaseEstimator):
             best_score = -xp.inf
             best_index = None
             best_feat = None
-            for id_batch, feat_batch in feature_generator(X, skip_indices=indices[:i]):
+            if self.groups is None:
+                skip_indices = indices[:i]
+            else:
+                # Selected slots plus every non-representative group member.
+                skip_indices = np.unique(
+                    np.r_[
+                        np.asarray(indices[:i], dtype=np.int64),
+                        group_skip,
+                    ]
+                )
+            for id_batch, feat_batch in feature_generator(X, skip_indices=skip_indices):
                 feat_batch = _check_generated_features(
                     id_batch, feat_batch, n_samples, sample_mask, xp
                 )
@@ -261,9 +356,16 @@ class LazyFastCan(BaseEstimator):
             indices[i] = best_index
             scores[i] = best_score
             W[:, i] = best_feat
+
         self.indices_ = indices
         self.scores_ = scores
         self.n_features_ = max_feat_idx + 1
+        if self.groups is not None and int(self.n_features_) > n_group_features:
+            raise ValueError(
+                f"The length of `groups` ({n_group_features}) is smaller than "
+                f"the largest generated feature index plus one "
+                f"({int(self.n_features_)})."
+            )
         if not xp.all(indices_include == -1):
             raise RuntimeError(
                 "Not all prerequisite features can be selected. "

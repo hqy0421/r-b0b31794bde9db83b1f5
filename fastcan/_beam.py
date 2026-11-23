@@ -10,7 +10,15 @@ from scipy.linalg import orth
 
 
 def _beam_search(
-    X, V, n_features_to_select, beam_width, indices_include, mask_exclude, tol, verbose
+    X,
+    V,
+    n_features_to_select,
+    beam_width,
+    indices_include,
+    mask_exclude,
+    tol,
+    verbose,
+    group_ids=None,
 ):
     """
     Beam search with SSC.
@@ -32,6 +40,10 @@ def _beam_search(
         Tolerance for numerical stability in Gram-Schmidt process.
     verbose : bool
         If True, print progress information.
+    group_ids : np.ndarray of shape (n_features,), default=None
+        Compact equivalence-group id of every feature.  When a feature is
+        selected, all other members of its group are masked so that a
+        duplicate channel never occupies a second beam slot.
 
     Returns:
     indices : np.ndarray, dtype=np.int32
@@ -43,7 +55,7 @@ def _beam_search(
 
     X, _ = _safe_normalize(X)
 
-    mask, X_selected = _prepare_candidates(X, mask_exclude, indices_include)
+    mask, X_selected = _prepare_candidates(X, mask_exclude, indices_include, group_ids)
     if X_selected.shape[1] == 0:
         beams_scores = np.sum((X.T @ V) ** 2, axis=1)
         beams_scores[mask] = 0
@@ -62,7 +74,10 @@ def _beam_search(
         beams_scores = np.zeros((beam_width, n_features))
         for beam_idx in range(beam_width):
             mask, X_selected = _prepare_candidates(
-                X, mask_exclude, beams_selected_ids[beam_idx]
+                X,
+                mask_exclude,
+                beams_selected_ids[beam_idx],
+                group_ids,
             )
             W_selected = orth(X_selected)
             beams_scores[beam_idx] = _mgs_ssc(
@@ -87,9 +102,12 @@ def _beam_search(
     return np.array(indices, dtype=np.int32, order="F")
 
 
-def _prepare_candidates(X, mask_exclude, indices_selected):
+def _prepare_candidates(X, mask_exclude, indices_selected, group_ids=None):
     mask = np.copy(mask_exclude)
     mask[indices_selected] = True
+    if group_ids is not None and len(indices_selected) > 0:
+        selected_groups = group_ids[indices_selected]
+        mask |= np.isin(group_ids, selected_groups)
     X_selected = X[:, indices_selected]
     return mask, X_selected
 

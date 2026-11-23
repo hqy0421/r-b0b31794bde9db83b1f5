@@ -11,6 +11,7 @@ User Guide
    unsupervised.rst
    multioutput.rst
    redundancy.rst
+   equivalence_groups.rst
    ols_and_omp.rst
    narx.rst
    pruning.rst

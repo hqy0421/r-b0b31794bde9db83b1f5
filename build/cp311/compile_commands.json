@@ -1,0 +1,26 @@
+[
+  {
+    "directory": "/workspace/build/cp311",
+    "command": "cython -M --fast-fail -3 '-X language_level=3' '-X boundscheck=False' '-X wraparound=False' '-X initializedcheck=False' '-X nonecheck=False' '-X cdivision=True' '-X profile=False' -Xfreethreading_compatible=True /workspace/fastcan/_cancorr_fast.pyx -o fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/_cancorr_fast.pyx.c",
+    "file": "/workspace/fastcan/_cancorr_fast.pyx",
+    "output": "fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/_cancorr_fast.pyx.c"
+  },
+  {
+    "directory": "/workspace/build/cp311",
+    "command": "cc -Ifastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p -Ifastcan -I../../fastcan -I/usr/include/python3.11 -I/usr/include/x86_64-linux-gnu/python3.11 -fvisibility=hidden -fdiagnostics-color=always -DNDEBUG -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -O3 -fPIC -fopenmp -MD -MQ fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__cancorr_fast.pyx.c.o -MF fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__cancorr_fast.pyx.c.o.d -o fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__cancorr_fast.pyx.c.o -c fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/_cancorr_fast.pyx.c",
+    "file": "fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/_cancorr_fast.pyx.c",
+    "output": "fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__cancorr_fast.pyx.c.o"
+  },
+  {
+    "directory": "/workspace/build/cp311",
+    "command": "cython -M --fast-fail -3 '-X language_level=3' '-X boundscheck=False' '-X wraparound=False' '-X initializedcheck=False' '-X nonecheck=False' '-X cdivision=True' '-X profile=False' -Xfreethreading_compatible=True /workspace/fastcan/narx/_narx_fast.pyx -o fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p/_narx_fast.pyx.c",
+    "file": "/workspace/fastcan/narx/_narx_fast.pyx",
+    "output": "fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p/_narx_fast.pyx.c"
+  },
+  {
+    "directory": "/workspace/build/cp311",
+    "command": "cc -Ifastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p -Ifastcan/narx -I../../fastcan/narx -I/usr/include/python3.11 -I/usr/include/x86_64-linux-gnu/python3.11 -fvisibility=hidden -fdiagnostics-color=always -DNDEBUG -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -O3 -fPIC -MD -MQ fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__narx_fast.pyx.c.o -MF fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__narx_fast.pyx.c.o.d -o fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__narx_fast.pyx.c.o -c fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p/_narx_fast.pyx.c",
+    "file": "fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p/_narx_fast.pyx.c",
+    "output": "fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p/meson-generated__narx_fast.pyx.c.o"
+  }
+]

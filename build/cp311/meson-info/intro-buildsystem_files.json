@@ -1,0 +1,5 @@
+[
+  "/workspace/meson.build",
+  "/workspace/fastcan/meson.build",
+  "/workspace/fastcan/narx/meson.build"
+]

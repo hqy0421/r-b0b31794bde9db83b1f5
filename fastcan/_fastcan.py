@@ -20,6 +20,7 @@ from sklearn.utils.validation import check_is_fitted, validate_data
 
 from ._beam import _beam_search
 from ._cancorr_fast import _greedy_search
+from ._group import alternate_mask, normalize_groups
 
 
 class FastCan(SelectorMixin, BaseEstimator):
@@ -54,6 +55,20 @@ class FastCan(SelectorMixin, BaseEstimator):
         When `beam_width` > 1, use beam search.
 
         .. versionadded:: 0.5.0
+
+    groups : array-like of shape (n_features,), default=None
+        Group labels of the features. Features with the same label are
+        treated as equivalent (duplicate) sampling channels of the same
+        physical quantity. Only one feature per group can be selected:
+        the lowest-indexed member becomes the frozen *representative* of
+        the group and the remaining members are skipped without spending
+        another selection slot. The group bookkeeping is exposed through
+        the `group_ids_`, `group_labels_`, `group_representatives_`, and
+        `group_members_` attributes, and missing representatives can be
+        replaced at prediction time with
+        :func:`fastcan.fill_group_missing`. ``None`` disables grouping.
+
+        .. versionadded:: 0.7.0
 
     verbose : int, default=1
         The verbosity level.
@@ -95,6 +110,35 @@ class FastCan(SelectorMixin, BaseEstimator):
     indices_exclude_ : array-like of shape (n_exclusions,), dtype=int
         The indices of the excluded features.
 
+    group_ids_ : ndarray of shape (n_features,), dtype=np.int64
+        Compact integer id of the equivalence group of each feature.
+        Only defined when `groups` is not None.
+
+        .. versionadded:: 0.7.0
+
+    group_labels_ : ndarray of shape (n_groups,), dtype=object
+        The unique group labels corresponding to `group_ids_`.
+
+        .. versionadded:: 0.7.0
+
+    group_representatives_ : ndarray of shape (n_groups,), dtype=np.int64
+        The feature index of the lowest-indexed representative of each
+        group.
+
+        .. versionadded:: 0.7.0
+
+    group_members_ : list of ndarray
+        The feature indices belonging to each group.
+
+        .. versionadded:: 0.7.0
+
+    X_train_ : ndarray of shape (n_samples, n_features), dtype=float
+        The (validated) training feature matrix, stored to verify group
+        equivalence and estimate substitution mappings. Only defined when
+        `groups` is not None.
+
+        .. versionadded:: 0.7.0
+
     References
     ----------
     * Zhang, S., & Lang, Z. Q. (2022).
@@ -126,6 +170,7 @@ class FastCan(SelectorMixin, BaseEstimator):
         "beam_width": [
             Interval(Integral, 1, None, closed="left"),
         ],
+        "groups": [None, "array-like"],
         "verbose": ["verbose"],
     }
 
@@ -138,6 +183,7 @@ class FastCan(SelectorMixin, BaseEstimator):
         eta=False,
         tol=0.01,
         beam_width=1,
+        groups=None,
         verbose=1,
     ):
         self.n_features_to_select = n_features_to_select
@@ -146,6 +192,7 @@ class FastCan(SelectorMixin, BaseEstimator):
         self.eta = eta
         self.tol = tol
         self.beam_width = beam_width
+        self.groups = groups
         self.verbose = verbose
 
     def fit(self, X, y):
@@ -191,6 +238,43 @@ class FastCan(SelectorMixin, BaseEstimator):
                 "`indices_include` and `indices_exclude` should not have intersection."
             )
 
+        if self.groups is None:
+            self.group_ids_ = None
+            self.group_labels_ = None
+            self.group_representatives_ = None
+            self.group_members_ = None
+        else:
+            (
+                self.group_ids_,
+                self.group_labels_,
+                self.group_representatives_,
+                self.group_members_,
+            ) = normalize_groups(
+                self.groups,
+                n_features=n_features,
+                indices_exclude=self.indices_exclude_,
+                indices_include=self.indices_include_,
+            )
+            # Keep the raw training data for group equivalence verification
+            # and substitution mapping estimation.
+            self.X_train_ = np.array(X, copy=True)
+            available_mask = ~np.isin(np.arange(n_features), self.indices_exclude_)
+            n_available_groups = np.unique(self.group_ids_[available_mask]).size
+            if self.n_features_to_select > n_available_groups:
+                raise ValueError(
+                    "n_features_to_select should be <= the number of available "
+                    f"equivalence groups ({n_available_groups}), but got "
+                    f"{self.n_features_to_select}."
+                )
+            n_group_inclusions = np.unique(self.group_ids_[self.indices_include_]).size
+            if self.beam_width > n_available_groups - n_group_inclusions:
+                raise ValueError(
+                    "beam_width should be <= the number of available "
+                    f"equivalence groups minus inclusions "
+                    f"({n_available_groups - n_group_inclusions}), but got "
+                    f"{self.beam_width}."
+                )
+
         if n_features - n_exclusions < self.n_features_to_select:
             raise ValueError(
                 "n_features_to_select should <= n_features - n_exclusions."
@@ -224,6 +308,8 @@ class FastCan(SelectorMixin, BaseEstimator):
             self.indices_include_,
             self.indices_exclude_,
         )
+        if self.group_ids_ is not None:
+            mask[alternate_mask(self.group_ids_, self.group_representatives_)] = True
 
         if self.beam_width > 1 and self.n_features_to_select > n_inclusions:
             indices = _beam_search(
@@ -235,6 +321,11 @@ class FastCan(SelectorMixin, BaseEstimator):
                 mask_exclude=mask.astype(bool, copy=True),
                 tol=self.tol,
                 verbose=self.verbose,
+                group_ids=(
+                    np.asarray(self.group_ids_, dtype=np.int64)
+                    if self.group_ids_ is not None
+                    else None
+                ),
             )
 
             indices, scores, mask = _prepare_search(
@@ -243,8 +334,18 @@ class FastCan(SelectorMixin, BaseEstimator):
                 indices,
                 self.indices_exclude_,
             )
+            if self.group_ids_ is not None:
+                mask[alternate_mask(self.group_ids_, self.group_representatives_)] = (
+                    True
+                )
 
         n_threads = _openmp_effective_n_threads()
+        if self.group_ids_ is None:
+            group_ids = np.empty(0, dtype=np.int64)
+            group_mask = np.empty(0, dtype=np.ubyte)
+        else:
+            group_ids = np.asarray(self.group_ids_, dtype=np.int64)
+            group_mask = np.zeros(self.group_labels_.size, dtype=np.ubyte)
         _greedy_search(
             X=self.X_transformed_.copy(order="F"),
             V=self.y_transformed_,
@@ -255,6 +356,8 @@ class FastCan(SelectorMixin, BaseEstimator):
             mask=mask,
             indices=indices,
             scores=scores,
+            group_ids=group_ids,
+            group_mask=group_mask,
         )
         support = np.zeros(shape=n_features, dtype=bool)
         support[indices] = True

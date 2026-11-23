@@ -1,0 +1,60 @@
+Build started at 2026-11-23T22:21:44.338970
+Main binary: /opt/venv/bin/python3
+Build Options: -Dbuildtype=release -Db_ndebug=if-release -Db_vscrt=md -Dvsenv=true --native-file=/workspace/build/cp311/meson-python-native-file.ini
+Python system: Linux
+The Meson build system
+Version: 1.12.1
+Source dir: /workspace
+Build dir: /workspace/build/cp311
+Build type: native build
+Project name: fastcan
+Project version: 0.7.0.dev0
+C compiler for the host machine: cc (gcc 12.2.0 "cc (Debian 12.2.0-14+deb12u1) 12.2.0")
+C linker for the host machine: cc ld.bfd 2.40
+-----------
+Detecting archiver via: `gcc-ar --version` -> 0
+stdout:
+GNU ar (GNU Binutils for Debian) 2.40
+Copyright (C) 2023 Free Software Foundation, Inc.
+This program is free software; you may redistribute it under the terms of
+the GNU General Public License version 3 or (at your option) any later version.
+This program has absolutely no warranty.
+-----------
+Cython compiler for the host machine: cython (cython 3.3.1)
+C compiler for the build machine: cc (gcc 12.2.0 "cc (Debian 12.2.0-14+deb12u1) 12.2.0")
+C linker for the build machine: cc ld.bfd 2.40
+Cython compiler for the build machine: cython (cython 3.3.1)
+Build machine cpu family: x86_64
+Build machine cpu: x86_64
+Host machine cpu family: x86_64
+Host machine cpu: x86_64
+Target machine cpu family: x86_64
+Target machine cpu: x86_64
+Program python found: YES (/task-cache/venv/bin/python)
+Dependency OpenMP for host machine found: YES 4.5 (cached)
+Build targets in project: 2
+
+fastcan 0.7.0.dev0
+
+  User defined options
+    Native files: /workspace/build/cp311/meson-python-native-file.ini
+    b_ndebug    : if-release
+    b_vscrt     : md
+    buildtype   : release
+    vsenv       : true
+
+Found ninja-1.13.2.git.kitware.jobserver-pipe-1 at /opt/venv/bin/ninja
+
+Visual Studio environment is needed to run Ninja. It is recommended to use Meson wrapper:
+/opt/venv/bin/meson compile -C .
+Running compile:
+Working directory:  /workspace/build/cp311/meson-private/tmpvbgr2s5l
+Code:
+
+-----------
+Command line: `cc /workspace/build/cp311/meson-private/tmpvbgr2s5l/testfile.c -o /workspace/build/cp311/meson-private/tmpvbgr2s5l/output.obj -c -D_FILE_OFFSET_BITS=64 -O0 -U_FORTIFY_SOURCE --print-search-dirs` -> 0
+stdout:
+install: /usr/lib/gcc/x86_64-linux-gnu/12/
+programs: =/usr/lib/gcc/x86_64-linux-gnu/12/:/usr/lib/gcc/x86_64-linux-gnu/12/:/usr/lib/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/12/:/usr/lib/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/bin/x86_64-linux-gnu/12/:/usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/bin/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/bin/
+libraries: =/usr/lib/gcc/x86_64-linux-gnu/12/:/usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/lib/x86_64-linux-gnu/12/:/usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/lib/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/12/../../../x86_64-linux-gnu/12/:/usr/lib/gcc/x86_64-linux-gnu/12/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/12/../../../../lib/:/lib/x86_64-linux-gnu/12/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/12/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/12/../../../../x86_64-linux-gnu/lib/:/usr/lib/gcc/x86_64-linux-gnu/12/../../../:/lib/:/usr/lib/
+-----------

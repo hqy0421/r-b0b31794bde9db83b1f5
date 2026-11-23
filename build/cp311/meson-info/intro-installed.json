@@ -1,0 +1,5 @@
+{
+  "/workspace/build/cp311/fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so": "/usr/local/lib/python3/dist-packages/fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so",
+  "/workspace/build/cp311/fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so": "/usr/local/lib/python3/dist-packages/fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so",
+  "/workspace/fastcan": "/usr/local/lib/python3/dist-packages/fastcan"
+}

@@ -22,6 +22,7 @@ from sklearn.utils._param_validation import Interval, StrOptions, validate_param
 from sklearn.utils.validation import check_is_fitted
 
 from .._fastcan import FastCan
+from .._group import normalize_groups
 from .._lazyfastcan import LazyFastCan, _skip2valid
 from .._refine import refine
 from ..utils import mask_missing_values
@@ -147,6 +148,7 @@ def print_narx(
         "random_state": ["random_state"],
         "include_zero_delay": [None, "array-like"],
         "static_indices": [None, "array-like"],
+        "groups": [None, "array-like"],
         "lazy": ["boolean"],
         "batch_size": [
             Interval(Integral, 1, None, closed="left"),
@@ -177,6 +179,7 @@ def make_narx(
     random_state=None,
     include_zero_delay=None,
     static_indices=None,
+    groups=None,
     lazy=False,
     batch_size=16,
     refine_verbose=1,
@@ -233,6 +236,22 @@ def make_narx(
         .. note::
             If the corresponding include_zero_delay of the static features is False, the
             static feature will be excluded from candidate features.
+
+    groups : {None, array-like} of shape (n_features,) default=None
+        Equivalence-group labels of the raw input features, e.g. labels of
+        duplicate sampling channels recording the same physical quantity.
+        The labels are propagated to the time-shift and polynomial term
+        candidates: two terms built from the same delay pattern and
+        polynomial structure over equivalent channels receive the same
+        term-group label, so the selector spends at most one term budget on
+        each physical signal. The returned :class:`NARX` carries the raw
+        group bookkeeping (`group_ids_`, `group_labels_`,
+        `group_representatives_`, `group_members_`, and `X_train_`), which
+        enables :func:`fastcan.fill_group_missing` to substitute a frozen
+        representative channel at prediction time. Only input features can
+        be grouped; output channels are always ungrouped.
+
+        .. versionadded:: 0.7.0
 
     lazy : bool, default=False
         Whether to use LazyFastCan for selection. If False, FastCan will be used.
@@ -373,6 +392,33 @@ def make_narx(
         random_state=random_state,
     )
 
+    if groups is not None:
+        groups = column_or_1d(
+            np.asarray(groups, dtype=object),
+            warn=True,
+        )
+        if groups.shape[0] != n_features:
+            raise ValueError(
+                f"The length of `groups` ({groups.shape[0]}) should be equal to "
+                f"the number of input features ({n_features})."
+            )
+        (
+            raw_group_ids,
+            raw_group_labels,
+            raw_representatives,
+            raw_members,
+        ) = normalize_groups(groups, n_features=n_features)
+        term_groups = _build_term_groups(
+            raw_group_ids,
+            n_features,
+            n_outputs,
+            time_shift_ids_all,
+            poly_ids_all,
+        )
+    else:
+        raw_group_ids = None
+        term_groups = None
+
     if lazy:
         sample_mask = xp.ones(n_samples, dtype=xp.bool, device=device_)
         for start in session_sizes_cumsum[:-1]:
@@ -391,6 +437,7 @@ def make_narx(
                 n_features_to_select=n_terms_to_select[i],
                 feature_generator=gen_terms,
                 sample_mask=sample_mask,
+                groups=term_groups,
             ).fit(xy_hstack, y[:, i])
             selected_ids = csf.indices_
             selected_ids = xp.sort(selected_ids)
@@ -414,6 +461,7 @@ def make_narx(
         for i in range(n_outputs):
             csf = FastCan(
                 n_terms_to_select[i],
+                groups=term_groups,
                 **params,
             ).fit(poly_terms_masked, y_masked[:, i])
             if refine_drop is not None:
@@ -445,12 +493,63 @@ def make_narx(
     output_ids = [i for i in range(n_outputs) for _ in range(n_terms_to_select[i])]
     feat_ids, delay_ids = tp2fd(time_shift_ids, poly_ids)
 
-    return NARX(
+    narx = NARX(
         feat_ids=feat_ids,
         delay_ids=delay_ids,
         output_ids=output_ids,
         fit_intercept=fit_intercept,
     )
+    if groups is not None:
+        # Expose the raw-channel group bookkeeping so that a missing
+        # representative input can be replaced by a verified duplicate
+        # channel via fastcan.fill_group_missing before NARX.predict.
+        narx.group_ids_ = raw_group_ids
+        narx.group_labels_ = raw_group_labels
+        narx.group_representatives_ = raw_representatives
+        narx.group_members_ = raw_members
+        narx.X_train_ = np.asarray(
+            xy_hstack if n_features == 0 else xy_hstack[:, :n_features],
+            dtype=float,
+            copy=True,
+        )
+    return narx
+
+
+def _build_term_groups(
+    raw_group_ids,
+    n_features,
+    n_outputs,
+    time_shift_ids,
+    poly_ids,
+):
+    """Propagate raw channel group labels to polynomial term candidates.
+
+    A time-shift variable over an input channel inherits the channel's
+    group label together with its delay; output variables and variables of
+    ungrouped channels get a unique label. Two polynomial terms share a
+    term-group label when, position by position, their variables use the
+    same delay and belong to the same raw group (or are the same
+    non-grouped variable). Constants (-1) always match.
+    """
+    n_terms = poly_ids.shape[0]
+    # Label of every time-shift variable: (group-or-channel key, delay).
+    var_labels = []
+    for feat_idx, delay in time_shift_ids:
+        if feat_idx < n_features and raw_group_ids is not None:
+            key = ("g", int(raw_group_ids[int(feat_idx)]))
+        else:
+            # Outputs and ungrouped input channels are identified exactly.
+            key = ("f", int(feat_idx))
+        var_labels.append((key, int(delay)))
+
+    term_labels = np.empty(n_terms, dtype=object)
+    for term_idx in range(n_terms):
+        signature = tuple(
+            (-1, -1) if var_id == -1 else var_labels[int(var_id)]
+            for var_id in poly_ids[term_idx]
+        )
+        term_labels[term_idx] = signature
+    return term_labels
 
 
 def _gen_poly_time_shift_terms(

@@ -1,0 +1,129 @@
+[
+  {
+    "name": "_cancorr_fast.cpython-311-x86_64-linux-gnu",
+    "id": "5b03dbc@@_cancorr_fast.cpython-311-x86_64-linux-gnu.so@sha",
+    "type": "shared module",
+    "defined_in": "/workspace/fastcan/meson.build",
+    "filename": [
+      "/workspace/build/cp311/fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so"
+    ],
+    "build_by_default": true,
+    "target_sources": [
+      {
+        "language": "c",
+        "machine": "host",
+        "compiler": [
+          "cc"
+        ],
+        "parameters": [
+          "-I/workspace/build/cp311/fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p",
+          "-I/workspace/build/cp311/fastcan",
+          "-I/workspace/fastcan",
+          "-I/usr/include/python3.11",
+          "-I/usr/include/x86_64-linux-gnu/python3.11",
+          "-fvisibility=hidden",
+          "-fdiagnostics-color=always",
+          "-DNDEBUG",
+          "-D_FILE_OFFSET_BITS=64",
+          "-Wall",
+          "-Winvalid-pch",
+          "-O3",
+          "-fPIC",
+          "-fopenmp"
+        ],
+        "sources": [],
+        "generated_sources": [
+          "/workspace/build/cp311/fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so.p/_cancorr_fast.pyx.c"
+        ],
+        "unity_sources": []
+      },
+      {
+        "linker": [
+          "cc"
+        ],
+        "parameters": [
+          "-Wl,--as-needed",
+          "-Wl,--allow-shlib-undefined",
+          "-Wl,-O1",
+          "-shared",
+          "-fPIC",
+          "-fopenmp"
+        ]
+      }
+    ],
+    "extra_files": [],
+    "subproject": null,
+    "dependencies": [
+      "OpenMP",
+      "python-3.11"
+    ],
+    "depends": [],
+    "win_subsystem": "console",
+    "installed": true,
+    "install_filename": [
+      "/usr/local/lib/python3/dist-packages/fastcan/_cancorr_fast.cpython-311-x86_64-linux-gnu.so"
+    ]
+  },
+  {
+    "name": "_narx_fast.cpython-311-x86_64-linux-gnu",
+    "id": "6b13453@@_narx_fast.cpython-311-x86_64-linux-gnu.so@sha",
+    "type": "shared module",
+    "defined_in": "/workspace/fastcan/narx/meson.build",
+    "filename": [
+      "/workspace/build/cp311/fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so"
+    ],
+    "build_by_default": true,
+    "target_sources": [
+      {
+        "language": "c",
+        "machine": "host",
+        "compiler": [
+          "cc"
+        ],
+        "parameters": [
+          "-I/workspace/build/cp311/fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p",
+          "-I/workspace/build/cp311/fastcan/narx",
+          "-I/workspace/fastcan/narx",
+          "-I/usr/include/python3.11",
+          "-I/usr/include/x86_64-linux-gnu/python3.11",
+          "-fvisibility=hidden",
+          "-fdiagnostics-color=always",
+          "-DNDEBUG",
+          "-D_FILE_OFFSET_BITS=64",
+          "-Wall",
+          "-Winvalid-pch",
+          "-O3",
+          "-fPIC"
+        ],
+        "sources": [],
+        "generated_sources": [
+          "/workspace/build/cp311/fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so.p/_narx_fast.pyx.c"
+        ],
+        "unity_sources": []
+      },
+      {
+        "linker": [
+          "cc"
+        ],
+        "parameters": [
+          "-Wl,--as-needed",
+          "-Wl,--allow-shlib-undefined",
+          "-Wl,-O1",
+          "-shared",
+          "-fPIC"
+        ]
+      }
+    ],
+    "extra_files": [],
+    "subproject": null,
+    "dependencies": [
+      "python-3.11"
+    ],
+    "depends": [],
+    "win_subsystem": "console",
+    "installed": true,
+    "install_filename": [
+      "/usr/local/lib/python3/dist-packages/fastcan/narx/_narx_fast.cpython-311-x86_64-linux-gnu.so"
+    ]
+  }
+]

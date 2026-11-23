@@ -14,4 +14,6 @@ def _greedy_search(
     mask: npt.NDArray[np.uint8],
     indices: npt.NDArray[np.intc],
     scores: npt.NDArray[np.floating],
+    group_ids: npt.NDArray[np.int64],
+    group_mask: npt.NDArray[np.uint8],
 ) -> int: ...

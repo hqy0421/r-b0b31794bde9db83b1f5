@@ -125,6 +125,26 @@ cdef void _mgsvv(
 
 
 @final
+cdef void _mask_selected_group(
+    uint8_t* mask,                 # IN/OUT
+    floating* r2,                  # IN/OUT
+    const long[::1] group_ids,     # IN
+    uint8_t* group_mask,           # IN/OUT
+    int index,                     # IN
+    int n_features,                # IN
+) noexcept nogil:
+    """Freeze every member of the equivalence group of the selected feature."""
+    cdef:
+        int group = <int>group_ids[index]
+        int j
+    for j in range(n_features):
+        if group_ids[j] == group:
+            mask[j] = True
+            r2[j] = 0.0
+    group_mask[group] = True
+
+
+@final
 cpdef int _greedy_search(
     floating[::1, :] X,               # IN/OUT
     floating[::1, :] V,               # IN
@@ -135,6 +155,8 @@ cpdef int _greedy_search(
     uint8_t[::1] mask,                # IN/TEMP
     int[::1] indices,                 # OUT
     floating[::1] scores,             # OUT
+    long[::1] group_ids,              # IN (empty memoryview disables groups)
+    uint8_t[::1] group_mask,          # TEMP (empty memoryview disables groups)
 ) except -1 nogil:
     """
     Greedy search with SSC.
@@ -147,6 +169,9 @@ cpdef int _greedy_search(
     mask (n_features, ) Mask for candidate features.
     indices: (t,) The indices vector of selected features, initiated with -1.
     scores: (t,) The h-correlation/eta-cosine of selected features.
+    group_ids: (n_features,) Compact equivalence-group id of each feature.
+               An empty memoryview disables group handling.
+    group_mask: (n_groups,) Flags of groups already represented in the selection.
     """
     cdef:
         int n_samples = X.shape[0]
@@ -157,6 +182,7 @@ cpdef int _greedy_search(
         floating g, ssc = 0.0
         int i, j
         int index = -1
+        bint use_groups = group_ids.shape[0] != 0
 
     memset(&r2[0], 0, n_features * sizeof(floating))
 
@@ -203,6 +229,14 @@ cpdef int _greedy_search(
                 )
             indices[i] = index
             scores[i] = r2[index]
+
+        # Freeze the whole equivalence group so duplicate channels cannot
+        # spend a second selection slot on the same physical signal.
+        if use_groups:
+            _mask_selected_group(
+                &mask[0], &r2[0], group_ids, &group_mask[0],
+                index, n_features,
+            )
 
         ssc += scores[i]
         if verbose == 1:
